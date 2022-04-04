@@ -3,6 +3,8 @@ package notepad_app;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Scanner;
 
 import javafx.application.Application;
@@ -14,45 +16,48 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
-import javafx.scene.text.Font;
-import javafx.scene.text.Text;
 
 
 public class Main extends Application {
-	public void undo() {
-		
-	}
-	public void redo() {
-		
-	}
-	public void save() {
-		
-	}
-	
+
 	@Override
 	public void start(Stage primaryStage) {
 		try {	
 			primaryStage.getIcons().add(new Image(new FileInputStream("images/notes.png")));
 			
-			BorderPane borderPaneLayout = new BorderPane();
-			FileChooser fileChooser = new FileChooser();
+			
 			CustomTextArea customTextArea = new CustomTextArea();
 			customTextArea.textArea.setMinSize(400, 400);
 			customTextArea.textArea.setOnKeyPressed(e->{
 				customTextArea.update();
 			});
+			
+			Caretaker caretaker = new Caretaker();
 			WordCounter wordCounter = new WordCounter();
 			customTextArea.subscribe(wordCounter);
 			
+			ZoomInCommand zoomInCommand = new ZoomInCommand(customTextArea.textArea);
+			ZoomOutCommand zoomOutCommand = new ZoomOutCommand(customTextArea.textArea);
+			
+			BorderPane borderPaneLayout = new BorderPane();
+			FileChooser fileChooser = new FileChooser();
+			
+			
 			//ToolBar
 			ToolBar toolbar = new ToolBar();
-			Button openButton = new Button("Open...");
-			Button undoButton = new Button("Undo");
-			Button redoButton = new Button("Redo");
-
-			toolbar.getItems().add(openButton);
-			toolbar.getItems().add(undoButton);
-			toolbar.getItems().add(redoButton);
+			Button snapshotButton = new Button("Take Snapshot");
+			SnapshotCommand snapshotCommand = new SnapshotCommand(customTextArea, caretaker);
+			snapshotButton.setOnAction(e -> snapshotCommand.execute());
+			Button restoreNewestButton = new Button("Restore Most Recent");
+			RestoreNewestCommand restoreNewestCommand = new RestoreNewestCommand(customTextArea, caretaker);
+			restoreNewestButton.setOnAction(e -> restoreNewestCommand.execute());
+			Button restoreOldestButton = new Button("Restore Oldest");
+			RestoreOldestCommand restoreOldestCommand = new RestoreOldestCommand(customTextArea, caretaker);
+			restoreOldestButton.setOnAction(e-> restoreOldestCommand.execute());
+			
+			toolbar.getItems().add(snapshotButton);
+			toolbar.getItems().add(restoreNewestButton);
+			toolbar.getItems().add(restoreOldestButton);
 			
 			
 			//MenuBar	    
@@ -66,6 +71,10 @@ public class Main extends Application {
 			menuBar.getMenus().add(menuFile);
 			
 			MenuItem menuItemOpen = new MenuItem("Open...");
+			input = new FileInputStream("images/folder.png");
+	        image = new Image(input);
+	        imageView = new ImageView(image);
+			menuItemOpen.setGraphic(imageView);
 			menuItemOpen.setOnAction(e -> {
 				fileChooser.getExtensionFilters().addAll(
 					     new FileChooser.ExtensionFilter("Text Files", "*.txt")
@@ -73,28 +82,47 @@ public class Main extends Application {
 				File selectedFile = fileChooser.showOpenDialog(primaryStage);
 				//prompt to save current doc here
 				Scanner myReader;
-				try {
-					myReader = new Scanner(selectedFile);
-					while(myReader.hasNextLine()) {
-						customTextArea.textArea.setText(customTextArea.textArea.getText() + myReader.nextLine());
+				if(selectedFile != null) {
+					customTextArea.textArea.setText("");	//clears current text
+					try {
+						myReader = new Scanner(selectedFile);
+						String buffer = new String();
+						while(myReader.hasNextLine()) {
+							buffer += myReader.nextLine() + "\n";
+						}
+						customTextArea.textArea.setText(buffer);
+						myReader.close();
+					} catch (FileNotFoundException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
 					}
-					myReader.close();
-				} catch (FileNotFoundException e1) {
-					e1.printStackTrace();
-				}catch(NullPointerException e2) {
-					e2.printStackTrace();
 				}
+				
+				
 			});
 			menuFile.getItems().add(menuItemOpen);
-			
-			MenuItem menuItemNew = new MenuItem("New");
-			menuFile.getItems().add(menuItemNew);
+				
 			
 			MenuItem menuItemSave = new MenuItem("Save");
+			input = new FileInputStream("images/download.png");
+	        image = new Image(input);
+	        imageView = new ImageView(image);
+			menuItemSave.setGraphic(imageView);
 			menuItemSave.setOnAction(e -> {
 				fileChooser.setInitialFileName("myfile.txt");
 				
 				File selectedFile = fileChooser.showSaveDialog(primaryStage);
+				if (selectedFile != null) {
+					try {
+						FileWriter myWriter = new FileWriter(selectedFile);
+						myWriter.write(customTextArea.textArea.getText());
+						myWriter.close();
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+				}
+				
 				
 				
 			});
@@ -104,6 +132,10 @@ public class Main extends Application {
 			menuFile.getItems().add(separator);
 			
 			MenuItem menuItemExit = new MenuItem("Exit");
+			input = new FileInputStream("images/power-button.png");
+	        image = new Image(input);
+	        imageView = new ImageView(image);
+			menuItemExit.setGraphic(imageView);
 			menuItemExit.setOnAction(e -> {
 				primaryStage.close();
 				});
@@ -120,11 +152,17 @@ public class Main extends Application {
 			menuEdit.setStyle("-fx-font-size : 18;");
 			
 			MenuItem menuItemUndo = new MenuItem("Undo");
-			menuItemUndo.setOnAction(e -> undo());
+			input = new FileInputStream("images/return.png");
+	        image = new Image(input);
+	        imageView = new ImageView(image);
+			menuItemUndo.setGraphic(imageView);
 			menuEdit.getItems().add(menuItemUndo);
 			
 			MenuItem menuItemRedo = new MenuItem("Redo");
-			menuItemRedo.setOnAction(e -> redo());
+			input = new FileInputStream("images/forward.png");
+	        image = new Image(input);
+	        imageView = new ImageView(image);
+			menuItemRedo.setGraphic(imageView);			
 			menuEdit.getItems().add(menuItemRedo);
 			
 			menuBar.getMenus().add(menuEdit);
@@ -138,7 +176,28 @@ public class Main extends Application {
 			menuView.setGraphic(imageViewEye);
 			menuView.setStyle("-fx-font-size : 18;");
 
+			MenuItem menuItemZoomIn = new MenuItem("Zoom In");
+			input = new FileInputStream("images/zoom-in.png");
+	        image = new Image(input);
+	        imageView = new ImageView(image);
+			menuItemZoomIn.setGraphic(imageView);
+			menuItemZoomIn.setOnAction(e->zoomInCommand.execute());
+			
+			
+			MenuItem menuItemZoomOut = new MenuItem("Zoom Out");
+			input = new FileInputStream("images/zoom-out.png");
+	        image = new Image(input);
+	        imageView = new ImageView(image);
+			menuItemZoomOut.setGraphic(imageView);
+			menuItemZoomOut.setOnAction(e->zoomOutCommand.execute());
+			
+			menuView.getItems().add(menuItemZoomIn);
+			menuView.getItems().add(menuItemZoomOut);
 			menuBar.getMenus().add(menuView);
+			
+			
+			
+			
 			
 			VBox vbox1 = new VBox(menuBar,toolbar);
 			ToolBar toolbar2 = new ToolBar();
@@ -156,7 +215,7 @@ public class Main extends Application {
 			Scene scene = new Scene(borderPaneLayout, 600, 600);
 			
 			primaryStage.setScene(scene);
-			primaryStage.setTitle("Notepad__");
+			primaryStage.setTitle("Notepad--");
 			primaryStage.show();
 		} catch(Exception e) {
 			e.printStackTrace();

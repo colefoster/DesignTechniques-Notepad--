@@ -28,4 +28,15 @@ public class CustomTextArea {
 		}
 		wordCounter.update(words);
 	}
+	
+	public Memento takeSnapshot() {
+		return new Memento(this.textArea.getText());
+	}
+	
+	public void restore(Memento memento) {
+		this.textArea.setText(memento.getData()); 
+	}
+	
 }
+
+
